@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Private Companion Chat</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Companion">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    body {
+      margin: 0;
+      background-color: #0d0d0d;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #1a1a1a;
+      color: #ff4d4d;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.4rem;
+      border-bottom: 1px solid #333;
+    }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 0.75rem;
+      border-radius: 1rem;
+      position: relative;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      align-self: flex-end;
+      background-color: #ff4d4d;
+      color: white;
+    }
+
+    .ai {
+      align-self: flex-start;
+      background-color: #1a1a1a;
+      color: white;
+      border: 1px solid #ff4d4d;
+    }
+
+    .timestamp {
+      font-size: 0.7rem;
+      color: #999;
+      margin-top: 0.25rem;
+    }
+
+    footer {
+      padding: 1rem;
+      border-top: 1px solid #333;
+      background-color: #1a1a1a;
+    }
+
+    textarea {
+      width: 100%;
+      background: #1a1a1a;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+      resize: none;
+    }
+
+    button, input[type="file"] {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+      background-color: #ff4d4d;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #cc0000;
+    }
+  </style>
+</head>
+<body>
+  <header>Companion</header>
+  <div id="chat">
+    <div class="bubble ai">🤖 Hello! I'm your Companion. Ask me anything.</div>
+  </div>
+  <footer>
+    <textarea id="input" placeholder="Type your message..."></textarea>
+    <input type="file" id="imageUpload">
+    <button onclick="send()">Send</button>
+  </footer>
+
+  <script>
+    let history = [];
+
+    function timestamp() {
+      const now = new Date();
+      return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    }
+
+    async function send() {
+      const input = document.getElementById('input');
+      const chat = document.getElementById('chat');
+      const userMessage = input.value.trim();
+      if (!userMessage) return;
+
+      // Add user message
+      const userBubble = document.createElement('div');
+      userBubble.className = 'bubble user';
+      userBubble.innerHTML = `🧑‍💻 ${userMessage}<div class='timestamp'>${timestamp()}</div>`;
+      chat.appendChild(userBubble);
+
+      history.push({ role: "user", content: userMessage });
+      input.value = "";
+
+      const fullPrompt = history.map(entry =>
+        (entry.role === "user" ? "User: " : "Assistant: ") + entry.content
+      ).join("\n") + "\nAssistant:";
+
+      try {
+        let responseText = "";
+
+        if (userMessage.toLowerCase().includes("generate image")) {
+          // Simulated image generation (replace with real endpoint)
+          responseText = `<img src='https://via.placeholder.com/256x256.png?text=AI+Image' alt='Generated Image'>`;
+        } else {
+          const response = await fetch('http://localhost:11434/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: "llama3:8b",
+              prompt: fullPrompt,
+              stream: false
+            })
+          });
+
+          const data = await response.json();
+          responseText = data.response;
+          history.push({ role: "assistant", content: responseText });
+        }
+
+        const aiBubble = document.createElement('div');
+        aiBubble.className = 'bubble ai';
+        aiBubble.innerHTML = `🤖 ${responseText}<div class='timestamp'>${timestamp()}</div>`;
+        chat.appendChild(aiBubble);
+        chat.scrollTop = chat.scrollHeight;
+
+      } catch (err) {
+        const errorBubble = document.createElement('div');
+        errorBubble.className = 'bubble ai';
+        errorBubble.innerHTML = `❌ Error: ${err.message}<div class='timestamp'>${timestamp()}</div>`;
+        chat.appendChild(errorBubble);
+      }
+    }
+  </script>
+</body>
+</html>
